@@ -1,11 +1,12 @@
 package com.example.proyectospringdatamongodb;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/candidate")
@@ -43,9 +44,18 @@ public class CandidateController {
     /*findAll() devolverá todos los registros en nuestra base de datos*/
 
     @GetMapping(value = "/{id}")
-    public Candidate getOne(@PathVariable String id) {
-        return candidateRepository.findById(id)
-                .orElseThrow(ResourceNotFoundException::new);/*Si el registro no está presente, throws una excepción de tiempo de ejecución personalizada ResourceNotFoundException es una clase personalizada que regresa 404 estado si se lanza:*/
+    public ResponseEntity<?> getOne(@PathVariable String id) {
+        Map<String, Object> response = new HashMap<>();
+        Optional<Candidate> candidatoActual = null;
+        candidatoActual = candidateRepository.findById(id);
+        if (candidatoActual != null){
+            response.put("Mensaje: ", candidatoActual);
+        }else {
+            response.put("Mensaje: ", "No se encontro el candidato con el id ".concat(id));
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<Map<String, Object>>(response,HttpStatus.OK);
+       /*Aqui se esta usando el manejo de errores con el try catch*/
     }
     /*findById() El método devolverá un único registro basado en la ID pasada*/
 
@@ -58,14 +68,26 @@ public class CandidateController {
 
     //Borrar
     @DeleteMapping(value = "/{id}")
-    @ResponseStatus(code = HttpStatus.ACCEPTED)
-    public void delete(@PathVariable String id) {
-        Candidate candidate = candidateRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        candidateRepository.delete((candidate));
+//    @ResponseStatus(code = HttpStatus.ACCEPTED)
+    public ResponseEntity<?> delete(@PathVariable String id) {
+        //ResponseEntity se maneja de manera generico lo que retorna el metodo eliminar, para poder manejar las excepciones
+        Map<String, Object> response = new HashMap<>();
+        //retornara un map con el string que sera el mensaje y un object que sera el status de la respuesta
+        try{
+            Candidate candidate = candidateRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
+            candidateRepository.delete((candidate));
+            response.put("Mensaje", "Se elimino el candidato con id ".concat(id));
+        }catch (DataAccessException e){
+            response.put("Mensaje","Ocurrio un error al eliminar el candidato con id ".concat(id));
+            response.put("Error: ", e.getMostSpecificCause().getMessage());
+            return new ResponseEntity<Map<String, Object>>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return new ResponseEntity<Map<String, Object>>(response, HttpStatus.OK);
     }
     /*Usamos el delete() método en el candidateRepository para borrar la entrada*/
 
     ////////////////////////////////////////////////////////////////
+
     //Metodos personalizados
     @GetMapping("/searchByEmail")
     public Candidate searchByEmail(@RequestParam(name = "email") String email) {
